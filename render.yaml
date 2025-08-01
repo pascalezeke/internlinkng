@@ -1,10 +1,10 @@
 services:
   - type: web
     name: internlinkng-backend
-    env: docker
+    env: java
     plan: free
-    dockerfilePath: ./internlinkng-backend/Dockerfile
-    dockerContext: ./internlinkng-backend
+    buildCommand: cd internlinkng-backend && ./gradlew build
+    startCommand: cd internlinkng-backend && ./gradlew run
     healthCheckPath: /
     envVars:
       - key: PORT
