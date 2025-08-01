@@ -2,7 +2,6 @@ services:
   - type: pserv
     name: internlinkng-db
     plan: free
-    ipAllowList: []
 
   - type: web
     name: internlinkng-backend
