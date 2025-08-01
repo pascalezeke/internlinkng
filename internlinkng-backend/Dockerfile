@@ -20,5 +20,5 @@ RUN ./gradlew build --no-daemon
 # Expose the port
 EXPOSE 8080
 
-# Run the application
-CMD ["./gradlew", "run"] 
+# Run the application with proper environment handling
+CMD ["./gradlew", "run", "--args=--port=${PORT:-8080}"] 
