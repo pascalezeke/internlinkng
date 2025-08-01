@@ -1,0 +1,24 @@
+services:
+  - type: postgresql
+    name: internlinkng-db
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: internlinkng-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./internlinkng-backend/Dockerfile
+    dockerContext: ./internlinkng-backend
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DATABASE_URL
+        fromDatabase:
+          name: internlinkng-db
+          property: connectionString
+      - key: DATABASE_DRIVER
+        value: org.postgresql.Driver
+      - key: JWT_SECRET
+        generateValue: true 
