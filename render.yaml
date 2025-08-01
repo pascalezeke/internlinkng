@@ -2,6 +2,7 @@ services:
   - type: pserv
     name: internlinkng-db
     plan: free
+    startCommand: "postgres"
 
   - type: web
     name: internlinkng-backend
@@ -17,7 +18,7 @@ services:
         fromService:
           type: pserv
           name: internlinkng-db
-          property: connectionString
+          property: externalDatabaseUrl
       - key: DATABASE_DRIVER
         value: org.postgresql.Driver
       - key: JWT_SECRET
