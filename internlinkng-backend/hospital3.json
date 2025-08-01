@@ -1,0 +1,10 @@
+{
+  "name": "Ibadan University Teaching Hospital",
+  "state": "Oyo",
+  "professions": ["House Officer", "Nurse"],
+  "salaryRange": "N160,000 - N210,000",
+  "deadline": "2024-07-30",
+  "onlineApplication": false,
+  "applicationUrl": null,
+  "physicalAddress": "654 University Road, Ibadan"
+} 

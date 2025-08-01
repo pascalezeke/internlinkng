@@ -1,0 +1,10 @@
+{
+  "name": "Port Harcourt Specialist Hospital",
+  "state": "Rivers",
+  "professions": ["Nurse", "Medical Laboratory Scientist", "House Officer"],
+  "salaryRange": "N220,000 - N280,000",
+  "deadline": "2024-08-20",
+  "onlineApplication": true,
+  "applicationUrl": "https://phshospital.com/internships",
+  "physicalAddress": "321 GRA Phase 2, Port Harcourt"
+} 
