@@ -8,8 +8,7 @@ gradle-app.setting
 # IDE
 .idea/
 *.iml
-*.ipr
-*.iws
+.vscode/
 
 # OS
 .DS_Store
@@ -18,8 +17,7 @@ Thumbs.db
 # Logs
 *.log
 
-# Runtime data
-pids
+# Runtime
 *.pid
 *.seed
 *.pid.lock
@@ -40,4 +38,7 @@ node_modules/
 *.tgz
 
 # Yarn Integrity file
-.yarn-integrity 
+.yarn-integrity
+
+# dotenv environment variables file
+.env 

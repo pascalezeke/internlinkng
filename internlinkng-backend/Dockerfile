@@ -14,11 +14,11 @@ COPY src src
 # Make gradlew executable
 RUN chmod +x ./gradlew
 
-# Build the application
-RUN ./gradlew build --no-daemon
+# Build the application with daemon disabled and better error handling
+RUN ./gradlew build --no-daemon --stacktrace --info
 
 # Expose the port
 EXPOSE 8080
 
 # Run the application with proper environment handling
-CMD ["./gradlew", "run", "--args=--port=${PORT:-8080}"] 
+CMD ["./gradlew", "run", "--no-daemon", "--args=--port=${PORT:-8080}"] 
