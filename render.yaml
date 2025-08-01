@@ -1,9 +1,4 @@
 services:
-  - type: pserv
-    name: internlinkng-db
-    plan: free
-    runtime: postgresql
-
   - type: web
     name: internlinkng-backend
     env: docker
@@ -14,11 +9,6 @@ services:
     envVars:
       - key: PORT
         value: 8080
-      - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: internlinkng-db
-          property: connectionString
       - key: DATABASE_DRIVER
         value: org.postgresql.Driver
       - key: JWT_SECRET
