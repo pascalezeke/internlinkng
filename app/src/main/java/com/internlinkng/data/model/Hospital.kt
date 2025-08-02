@@ -1,28 +1,60 @@
 package com.internlinkng.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Hospital(
-    @SerializedName("id")
+    @SerialName("id")
     val id: String,
-    @SerializedName("name")
+    @SerialName("name")
     val name: String,
-    @SerializedName("state")
+    @SerialName("state")
     val state: String,
-    @SerializedName("professions")
-    val professions: List<String>,
-    @SerializedName("salaryRange")
+    @SerialName("professions")
+    val professions: String, // Supabase stores as comma-separated string
+    @SerialName("salary_range")
     val salaryRange: String,
-    @SerializedName("deadline")
+    @SerialName("deadline")
     val deadline: String,
-    @SerializedName("created")
-    val created: String, // Added created date
-    @SerializedName("onlineApplication")
+    @SerialName("created")
+    val created: String,
+    @SerialName("online_application")
     val onlineApplication: Boolean,
-    @SerializedName("applicationUrl")
+    @SerialName("application_url")
     val applicationUrl: String?,
-    @SerializedName("physicalAddress")
-    val physicalAddress: String?,
-    @SerializedName("professionSalaries")
-    val professionSalaries: Map<String, String>? = null
-) 
+    @SerialName("physical_address")
+    val physicalAddress: String,
+    @SerialName("profession_salaries")
+    val professionSalaries: String? = null, // JSON string from Supabase
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null
+) {
+    // Helper function to convert comma-separated professions string to List
+    fun getProfessionsList(): List<String> {
+        return professions.split(",").map { it.trim() }
+    }
+    
+    // Helper function to parse profession salaries JSON
+    fun getProfessionSalariesMap(): Map<String, String>? {
+        return professionSalaries?.let {
+            try {
+                // Simple JSON parsing - you might want to use a proper JSON library
+                val pairs = it.trim('{', '}').split(",")
+                    .map { pair -> 
+                        val keyValue = pair.split(":")
+                        if (keyValue.size == 2) {
+                            keyValue[0].trim('"') to keyValue[1].trim('"')
+                        } else null
+                    }
+                    .filterNotNull()
+                    .toMap()
+                pairs
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+} 

@@ -1,140 +1,95 @@
 package com.internlinkng.utils
 
 import android.util.Log
+import com.internlinkng.data.model.Hospital
+import com.internlinkng.data.SupabaseClient
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
 object NetworkUtils {
     private const val TAG = "NetworkUtils"
-    private const val BASE_URL = "http://10.0.2.2:8080"
     
-    suspend fun testConnection(): Boolean {
+    suspend fun getHospitals(): List<Hospital> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Fetching hospitals from Supabase...")
+            val response = SupabaseClient.database
+                .from("hospitals")
+                .select(Columns.all())
+                .decodeList<Hospital>()
+            
+            Log.d(TAG, "Successfully fetched ${response.size} hospitals from Supabase")
+            response
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch hospitals from Supabase", e)
+            emptyList()
+        }
+    }
+    
+    suspend fun login(email: String, password: String): AuthResult {
         return withContext(Dispatchers.IO) {
             try {
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(10, TimeUnit.SECONDS)
-                    .build()
-                
-                val request = Request.Builder()
-                    .url("$BASE_URL/hospitals")
-                    .build()
-                
-                val response = client.newCall(request).execute()
-                val isSuccess = response.isSuccessful
-                
-                Log.d(TAG, "Network test result: $isSuccess")
-                isSuccess
+                Log.d(TAG, "Attempting login with Supabase...")
+                val response = SupabaseClient.auth.signInWith(email, password)
+                Log.d(TAG, "Login successful for user: ${response.user?.email}")
+                AuthResult.Success(response.user)
             } catch (e: Exception) {
-                Log.e(TAG, "Network test failed", e)
+                Log.e(TAG, "Login failed", e)
+                AuthResult.Error(e.message ?: "Login failed")
+            }
+        }
+    }
+    
+    suspend fun signUp(email: String, password: String): AuthResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Attempting signup with Supabase...")
+                val response = SupabaseClient.auth.signUpWith(email, password)
+                Log.d(TAG, "Signup successful for user: ${response.user?.email}")
+                AuthResult.Success(response.user)
+            } catch (e: Exception) {
+                Log.e(TAG, "Signup failed", e)
+                AuthResult.Error(e.message ?: "Signup failed")
+            }
+        }
+    }
+    
+    suspend fun logout(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Logging out from Supabase...")
+                SupabaseClient.auth.signOut()
+                Log.d(TAG, "Logout successful")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Logout failed", e)
                 false
             }
         }
     }
     
-    suspend fun findWorkingEndpoint(): String? {
+    suspend fun getCurrentUser(): io.github.jan.supabase.gotrue.user.UserInfo? {
         return withContext(Dispatchers.IO) {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .build()
-            
-            // Test different possible endpoints - prioritize emulator addresses
-            val endpoints = listOf(
-                "http://10.0.2.2:8080",  // Android emulator to host
-                "http://10.0.3.2:8080",  // Genymotion emulator to host
-                "http://10.230.79.90:8080", // Physical device IP
-                "http://192.168.1.1:8080",
-                "http://192.168.0.1:8080",
-                "http://172.20.10.1:8080" // iPhone hotspot
-            )
-            
-            for (endpoint in endpoints) {
-                try {
-                    val request = Request.Builder().url("$endpoint/hospitals").build()
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        Log.d(TAG, "Found working endpoint: $endpoint")
-                        return@withContext endpoint
-                    }
-                } catch (e: Exception) {
-                    Log.d(TAG, "Endpoint $endpoint failed: ${e.message}")
-                }
+            try {
+                SupabaseClient.auth.currentUserOrNull()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get current user", e)
+                null
             }
-            
-            Log.e(TAG, "No working endpoint found")
-            null
         }
     }
     
-    suspend fun scanNetworkForPhone(): List<String> {
-        return withContext(Dispatchers.IO) {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(2, TimeUnit.SECONDS)
-                .build()
-            
-            val possibleIPs = mutableListOf<String>()
-            
-            // Scan common phone IP ranges
-            for (i in 1..254) {
-                val ip = "10.230.79.$i"
-                try {
-                    val request = Request.Builder().url("http://$ip:8080/hospitals").build()
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        possibleIPs.add(ip)
-                        Log.d(TAG, "Found device with backend at: $ip")
-                    }
-                } catch (e: Exception) {
-                    // Ignore connection failures
-                }
-            }
-            
-            Log.d(TAG, "Network scan complete. Found ${possibleIPs.size} devices with backend")
-            possibleIPs
+    fun isLoggedIn(): Boolean {
+        return try {
+            SupabaseClient.auth.currentUserOrNull() != null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check login status", e)
+            false
         }
     }
-    
-    suspend fun testMultipleEndpoints(): Map<String, Boolean> {
-        return withContext(Dispatchers.IO) {
-            val results = mutableMapOf<String, Boolean>()
-            val client = OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .build()
-            
-            // Test different endpoints - prioritize emulator addresses
-            val endpoints = listOf(
-                "http://10.0.2.2:8080/hospitals",  // Android emulator to host
-                "http://10.0.3.2:8080/hospitals",  // Genymotion emulator to host
-                "http://10.230.79.90:8080/hospitals", // Physical device IP
-                "http://192.168.1.1:8080/hospitals" // Common router IP
-            )
-            
-            endpoints.forEach { endpoint ->
-                try {
-                    val request = Request.Builder().url(endpoint).build()
-                    val response = client.newCall(request).execute()
-                    results[endpoint] = response.isSuccessful
-                    Log.d(TAG, "Test $endpoint: ${response.isSuccessful}")
-                } catch (e: Exception) {
-                    results[endpoint] = false
-                    Log.e(TAG, "Test $endpoint failed: ${e.message}")
-                }
-            }
-            
-            results
-        }
-    }
-    
-    fun getBaseUrl(): String = BASE_URL
-    
-    fun logNetworkInfo() {
-        Log.d(TAG, "Base URL: $BASE_URL")
-        Log.d(TAG, "Testing connection to backend...")
-    }
+}
+
+sealed class AuthResult {
+    data class Success(val user: io.github.jan.supabase.gotrue.user.UserInfo?) : AuthResult()
+    data class Error(val message: String) : AuthResult()
 } 
