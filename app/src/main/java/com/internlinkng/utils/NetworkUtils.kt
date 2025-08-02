@@ -15,7 +15,7 @@ object NetworkUtils {
             Log.d(TAG, "Fetching hospitals from Supabase...")
             val response = SupabaseClient.database
                 .from("hospitals")
-                .select(Columns.all())
+                .select()
                 .decodeList<Hospital>()
             
             Log.d(TAG, "Successfully fetched ${response.size} hospitals from Supabase")
