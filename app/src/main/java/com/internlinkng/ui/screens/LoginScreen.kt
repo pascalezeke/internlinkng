@@ -111,7 +111,7 @@ fun LoginScreen(
                                 .set(userData)
                                 .addOnSuccessListener {
                                     Toast.makeText(context, "Account created successfully!", Toast.LENGTH_LONG).show()
-                                    onLoginSuccess()
+                            onLoginSuccess()
                                 }
                                 .addOnFailureListener { e ->
                                     errorMessage = e.message ?: "Failed to create account"
@@ -278,8 +278,8 @@ fun LoginScreen(
                                             when (result) {
                                                 is AuthResult.Success -> {
                                                     // After successful signup, show user info screen
-                                                    showUserInfoScreen = true
-                                                    isLoading = false
+                                            showUserInfoScreen = true
+                                            isLoading = false
                                                 }
                                                 is AuthResult.Error -> {
                                                     errorMessage = result.message
@@ -293,7 +293,7 @@ fun LoginScreen(
                                                 password = password,
                                                 onSuccess = {
                                                     Toast.makeText(context, "Login successful!", Toast.LENGTH_LONG).show()
-                                                    onLoginSuccess()
+                                            onLoginSuccess()
                                                 },
                                                 onError = { error ->
                                                     errorMessage = error
@@ -349,7 +349,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}
+} 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable

@@ -603,7 +603,7 @@ class MainViewModel : ViewModel() {
                     .addOnSuccessListener {
                         // Reload hospitals
                         loadHospitalsFromFirebase()
-                        onSuccess()
+                    onSuccess()
                     }
                     .addOnFailureListener { e ->
                         onError(e.message ?: "Failed to delete hospital")

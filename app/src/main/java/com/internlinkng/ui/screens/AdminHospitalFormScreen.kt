@@ -254,13 +254,13 @@ fun AdminHospitalFormScreen(
                             if (hospital == null) {
                                 // Add new hospital
                                 viewModel.addHospital(
-                                    name = name,
-                                    state = state,
+                                name = name,
+                                state = state,
                                     professions = professions,
                                     salaryRange = salaryRange,
-                                    deadline = deadline,
-                                    created = created,
-                                    onlineApplication = onlineApplication,
+                                deadline = deadline,
+                                created = created,
+                                onlineApplication = onlineApplication,
                                     applicationUrl = if (applicationUrl.isNotBlank()) applicationUrl else null,
                                     physicalAddress = physicalAddress,
                                     professionSalaries = professionSalaries,

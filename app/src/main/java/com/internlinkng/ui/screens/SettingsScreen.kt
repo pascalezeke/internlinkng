@@ -113,13 +113,13 @@ fun SettingsScreen(onLogout: () -> Unit = {}, onAdminLogin: () -> Unit = {}, vie
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else {
-                                Text(
-                                    text = "Manage your account settings",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = "Manage your account settings",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                    }
                     }
                     
                 }

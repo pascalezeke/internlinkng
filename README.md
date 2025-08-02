@@ -200,7 +200,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Team
 
-- **Developer**: [Your Name]
+- **Developer**: Pascal Ezeke Pinawei
 - **Backend**: Firebase (Authentication, Firestore, Storage)
 - **Frontend**: Jetpack Compose + Kotlin
 
