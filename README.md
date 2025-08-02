@@ -122,7 +122,7 @@ The app supports two user types:
 - **Administrators**: Can manage hospital listings
 
 ### Demo Credentials
-- **Admin**: `admin@internlinkng.com` / `Admin123!`
+- **Admin**: `admin@internlinkng.com` / `Android_Studio1`
 - **User**: Any email/password combination for signup
 
 ## 🌟 Key Features Implementation
