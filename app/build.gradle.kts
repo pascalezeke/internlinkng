@@ -71,6 +71,8 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt:1.4.7")
     implementation("io.github.jan-tennert.supabase:gotrue-kt:1.4.7")
     implementation("io.github.jan-tennert.supabase:storage-kt:1.4.7")
+    implementation("io.github.jan-tennert.supabase:realtime-kt:1.4.7")
+    implementation("io.github.jan-tennert.supabase:functions-kt:1.4.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
     
     testImplementation(libs.junit)

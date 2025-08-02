@@ -18,7 +18,7 @@ object SupabaseClient {
         install(Storage)
     }
     
-    val auth get() = client.auth
-    val database get() = client.postgrest
-    val storage get() = client.storage
+    val auth = client.auth
+    val database = client.postgrest
+    val storage = client.storage
 } 
