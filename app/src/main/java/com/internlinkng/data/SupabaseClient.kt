@@ -9,7 +9,7 @@ object SupabaseClient {
     private const val SUPABASE_URL = "https://avyzygqjtbdnfcgirirk.supabase.co"
     private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2eXp5Z3FqdGJkbmZjZ2lyaXJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxMDUxNTMsImV4cCI6MjA2OTY4MTE1M30.cySRlJSFnDR1A-5crUnfa8XqL-KasQBTPN08UlFIY7g"
     
-    val client = createSupabaseClient(
+    private val supabaseClient = createSupabaseClient(
         supabaseUrl = SUPABASE_URL,
         supabaseKey = SUPABASE_ANON_KEY
     ) {
@@ -18,7 +18,7 @@ object SupabaseClient {
         install(Storage)
     }
     
-    val auth = client.auth
-    val database = client.postgrest
-    val storage = client.storage
+    val auth get() = supabaseClient.auth
+    val database get() = supabaseClient.postgrest
+    val storage get() = supabaseClient.storage
 } 
