@@ -36,6 +36,7 @@ fun HospitalDetailsScreen(
     } else {
         professionsList.joinToString(", ")
     }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -162,7 +163,6 @@ fun HospitalDetailsScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 if (hospital.onlineApplication) {
-                    val context = LocalContext.current
                     Button(
                         onClick = {
                             hospital.applicationUrl?.let { url ->
@@ -189,7 +189,6 @@ fun HospitalDetailsScreen(
                         )
                     }
                 } else {
-                    val context = LocalContext.current
                     Button(
                         onClick = {
                             hospital.physicalAddress?.let { address ->
@@ -250,7 +249,43 @@ fun HospitalDetailsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 OutlinedButton(
-                    onClick = { /* TODO: Share hospital details */ },
+                    onClick = {
+                        val shareText = buildString {
+                            appendLine("🏥 ${hospital.name}")
+                            appendLine("📍 ${hospital.state}")
+                            appendLine("")
+                            appendLine("👨‍⚕️ Professions: ${hospital.professions}")
+                            appendLine("💰 Salary Range: ${hospital.salaryRange}")
+                            appendLine("📅 Deadline: ${hospital.deadline}")
+                            appendLine("📅 Created: ${hospital.created}")
+                            appendLine("")
+                            if (hospital.onlineApplication) {
+                                appendLine("🌐 Online Application Available")
+                                hospital.applicationUrl?.let { url ->
+                                    appendLine("🔗 Apply Online: $url")
+                                }
+                            } else {
+                                appendLine("📮 Physical Application Only")
+                            }
+                            appendLine("")
+                            appendLine("🏢 Address: ${hospital.physicalAddress}")
+                            appendLine("")
+                            appendLine("📱 Shared via InternLinkNG")
+                        }
+                        
+                        val intent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            putExtra(Intent.EXTRA_SUBJECT, "Hospital Internship Opportunity: ${hospital.name}")
+                        }
+                        
+                        try {
+                            context.startActivity(Intent.createChooser(intent, "Share Hospital Details"))
+                        } catch (e: Exception) {
+                            // Handle case where no app can handle the share intent
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large
                 ) {
@@ -277,18 +312,9 @@ fun HospitalDetailsScreen(
             hospital = hospital,
             onDismiss = { showApplicationDialog = false },
             onSubmit = { profession, coverLetter ->
-                viewModel.submitApplication(
-                    com.internlinkng.data.model.ApplicationRequest(
-                        userId = "user-123", // TODO: Get actual user ID
-                        hospitalId = hospital.id,
-                        profession = profession,
-                        coverLetter = coverLetter
-                    )
-                ) { success ->
-                    if (success) {
+                // TODO: Implement application submission with Firebase
+                // For now, just close the dialog
                         showApplicationDialog = false
-                    }
-                }
             }
         )
     }
@@ -348,7 +374,7 @@ fun HospitalDetailsScreen(
                 Column {
                     if (salaryPairs.isNotEmpty()) {
                         salaryPairs.forEach { (profession, salary) ->
-                            Text("$profession: $salary")
+                        Text("$profession: $salary")
                         }
                     } else {
                         Text("No salary information available")

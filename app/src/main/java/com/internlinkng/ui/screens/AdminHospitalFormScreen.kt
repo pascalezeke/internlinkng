@@ -1,131 +1,249 @@
 package com.internlinkng.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.internlinkng.data.model.Hospital
+import com.internlinkng.viewmodel.MainViewModel
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminHospitalFormScreen(
-    initialHospital: Hospital? = null,
-    onSubmit: (Hospital) -> Unit,
+    viewModel: MainViewModel,
+    hospital: Hospital? = null,
+    onSuccess: () -> Unit,
     onCancel: () -> Unit
 ) {
-    var name by remember { mutableStateOf(initialHospital?.name ?: "") }
-    var state by remember { mutableStateOf(initialHospital?.state ?: "") }
-    // Dynamic list of profession-salary pairs
-    var professionSalaryList by remember {
-        mutableStateOf(
-            if (initialHospital != null) {
-                val professions = initialHospital.professions.split(",").map { it.trim() }
-                val salaries = initialHospital.professionSalaries?.let { salariesStr ->
-                    try {
-                        // Simple parsing of profession salaries
-                        salariesStr.trim('{', '}').split(",")
-                            .map { pair -> 
-                                val keyValue = pair.split(":")
-                                if (keyValue.size == 2) {
-                                    keyValue[0].trim('"') to keyValue[1].trim('"')
-                                } else null
-                            }
-                            .filterNotNull()
-                            .toMap()
-                    } catch (e: Exception) {
-                        emptyMap()
-                    }
-                } ?: emptyMap()
-                
-                professions.mapIndexed { index, profession ->
-                    profession to (salaries[profession] ?: "")
-                }.toMutableList()
-            } else {
-                mutableListOf(Pair("", ""))
-            }
-        )
-    }
-    var salaryRange by remember { mutableStateOf(initialHospital?.salaryRange ?: "") }
-    var deadline by remember { mutableStateOf(initialHospital?.deadline ?: "") }
-    var created by remember { mutableStateOf(initialHospital?.created ?: "2024-07-28") }
-    var onlineApplication by remember { mutableStateOf(initialHospital?.onlineApplication ?: false) }
-    var applicationUrl by remember { mutableStateOf(initialHospital?.applicationUrl ?: "") }
-    var physicalAddress by remember { mutableStateOf(initialHospital?.physicalAddress ?: "") }
+    val context = LocalContext.current
+    
+    var name by remember { mutableStateOf(hospital?.name ?: "") }
+    var state by remember { mutableStateOf(hospital?.state ?: "") }
+    var professions by remember { mutableStateOf(hospital?.professions ?: "") }
+    var salaryRange by remember { mutableStateOf(hospital?.salaryRange ?: "") }
+    var deadline by remember { mutableStateOf(hospital?.deadline ?: "") }
+    var created by remember { mutableStateOf(hospital?.created ?: "2024") }
+    var onlineApplication by remember { mutableStateOf(hospital?.onlineApplication ?: false) }
+    var applicationUrl by remember { mutableStateOf(hospital?.applicationUrl ?: "") }
+    var physicalAddress by remember { mutableStateOf(hospital?.physicalAddress ?: "") }
+    var professionSalaries by remember { mutableStateOf(hospital?.professionSalaries ?: "") }
+    
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(if (initialHospital == null) "Add Hospital" else "Edit Hospital", style = MaterialTheme.typography.headlineSmall)
-        
-        if (errorMessage != null) {
+    val nigerianStates = viewModel.getAvailableStates()
+    var stateExpanded by remember { mutableStateOf(false) }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
             Text(
-                text = errorMessage!!,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(vertical = 8.dp)
+                        text = if (hospital == null) "Add New Hospital" else "Edit Hospital",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
             )
         }
-        
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        OutlinedTextField(value = state, onValueChange = { state = it }, label = { Text("State") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        // Professions and Salaries
-        Text("Professions & Salaries", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-        professionSalaryList.forEachIndexed { idx, pair ->
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Hospital Name
+            item {
                 OutlinedTextField(
-                    value = pair.first,
-                    onValueChange = { newProfession ->
-                        professionSalaryList = professionSalaryList.toMutableList().also { it[idx] = it[idx].copy(first = newProfession) }
-                    },
-                    label = { Text("Profession") },
-                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Hospital Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
-                OutlinedTextField(
-                    value = pair.second,
-                    onValueChange = { newSalary ->
-                        professionSalaryList = professionSalaryList.toMutableList().also { it[idx] = it[idx].copy(second = newSalary) }
-                    },
-                    label = { Text("Salary") },
-                    modifier = Modifier.weight(1f).padding(start = 4.dp)
-                )
-                if (professionSalaryList.size > 1) {
-                    IconButton(onClick = { professionSalaryList = professionSalaryList.toMutableList().also { it.removeAt(idx) } }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove")
+            }
+            
+            // State Selection
+            item {
+                ExposedDropdownMenuBox(
+                    expanded = stateExpanded,
+                    onExpandedChange = { stateExpanded = !stateExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = state,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("State") },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = stateExpanded,
+                        onDismissRequest = { stateExpanded = false }
+                    ) {
+                        nigerianStates.forEach { s ->
+                            DropdownMenuItem(
+                                text = { Text(s) },
+                                onClick = {
+                                    state = s
+                                    stateExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
-        }
-        Button(onClick = { professionSalaryList = (professionSalaryList + Pair("", "")).toMutableList() }, modifier = Modifier.align(Alignment.End)) {
-            Text("Add Profession")
-        }
-        OutlinedTextField(value = salaryRange, onValueChange = { salaryRange = it }, label = { Text("Salary Range") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        OutlinedTextField(value = deadline, onValueChange = { deadline = it }, label = { Text("Deadline (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        OutlinedTextField(value = created, onValueChange = { created = it }, label = { Text("Created Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-            Checkbox(checked = onlineApplication, onCheckedChange = { onlineApplication = it })
-            Text("Online Application Allowed")
-        }
-        OutlinedTextField(value = applicationUrl, onValueChange = { applicationUrl = it }, label = { Text("Application URL (if online)") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        OutlinedTextField(value = physicalAddress, onValueChange = { physicalAddress = it }, label = { Text("Physical Address") }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
-        
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            Button(
+            
+            // Professions
+            item {
+                OutlinedTextField(
+                    value = professions,
+                    onValueChange = { professions = it },
+                    label = { Text("Professions (comma-separated)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., Medicine, Nursing, Pharmacy") }
+                )
+            }
+            
+            // Salary Range
+            item {
+                OutlinedTextField(
+                    value = salaryRange,
+                    onValueChange = { salaryRange = it },
+                    label = { Text("Salary Range") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., ₦50,000 - ₦100,000") }
+                )
+            }
+            
+            // Deadline
+            item {
+                OutlinedTextField(
+                    value = deadline,
+                    onValueChange = { deadline = it },
+                    label = { Text("Application Deadline") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., December 31, 2024") }
+                )
+            }
+            
+            // Created Date
+            item {
+                OutlinedTextField(
+                    value = created,
+                    onValueChange = { created = it },
+                    label = { Text("Created Date") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("e.g., 2024") }
+                )
+            }
+            
+            // Online Application Toggle
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Online Application Available",
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = onlineApplication,
+                        onCheckedChange = { onlineApplication = it }
+                    )
+                }
+            }
+            
+            // Application URL (if online application)
+            if (onlineApplication) {
+                item {
+                    OutlinedTextField(
+                        value = applicationUrl,
+                        onValueChange = { applicationUrl = it },
+                        label = { Text("Application URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text("https://example.com/apply") }
+                    )
+                }
+            }
+            
+            // Physical Address
+            item {
+                OutlinedTextField(
+                    value = physicalAddress,
+                    onValueChange = { physicalAddress = it },
+                    label = { Text("Physical Address") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Hospital address for courier applications") }
+                )
+            }
+            
+            // Profession Salaries
+            item {
+                OutlinedTextField(
+                    value = professionSalaries,
+                    onValueChange = { professionSalaries = it },
+                    label = { Text("Profession Salaries (JSON)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("{\"Medicine\":\"₦80,000\",\"Nursing\":\"₦60,000\"}") }
+                )
+            }
+            
+            // Error Message
+            if (errorMessage != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage!!,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+            
+            // Action Buttons
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
                 onClick = onCancel, 
-                modifier = Modifier.padding(top = 16.dp),
-                enabled = !isLoading
+                        modifier = Modifier.weight(1f)
             ) { 
                 Text("Cancel") 
             }
+                    
             Button(
                 onClick = {
-                    if (name.isBlank() || state.isBlank() || professionSalaryList.any { it.first.isBlank() || it.second.isBlank() } || deadline.isBlank() || physicalAddress.isBlank()) {
+                            if (name.isBlank() || state.isBlank() || professions.isBlank()) {
                         errorMessage = "Please fill in all required fields"
                         return@Button
                     }
@@ -133,38 +251,66 @@ fun AdminHospitalFormScreen(
                     isLoading = true
                     errorMessage = null
                     
-                    try {
-                        val professionsString = professionSalaryList.map { it.first.trim() }.joinToString(",")
-                        val professionSalariesString = professionSalaryList
-                            .filter { it.first.isNotBlank() && it.second.isNotBlank() }
-                            .joinToString(",") { "\"${it.first}\":\"${it.second}\"" }
-                            .let { if (it.isNotBlank()) "{$it}" else null }
-                        
-                        onSubmit(
-                            Hospital(
-                                id = initialHospital?.id ?: "", // Backend should generate ID for new
-                                name = name,
-                                state = state,
-                                professions = professionsString,
-                                salaryRange = salaryRange,
-                                deadline = deadline,
-                                created = created,
-                                onlineApplication = onlineApplication,
-                                applicationUrl = applicationUrl.ifBlank { null },
-                                physicalAddress = physicalAddress,
-                                professionSalaries = professionSalariesString
-                            )
-                        )
-                    } catch (e: Exception) {
-                        errorMessage = "Error: ${e.message}"
-                    } finally {
-                        isLoading = false
+                            if (hospital == null) {
+                                // Add new hospital
+                                viewModel.addHospital(
+                                    name = name,
+                                    state = state,
+                                    professions = professions,
+                                    salaryRange = salaryRange,
+                                    deadline = deadline,
+                                    created = created,
+                                    onlineApplication = onlineApplication,
+                                    applicationUrl = if (applicationUrl.isNotBlank()) applicationUrl else null,
+                                    physicalAddress = physicalAddress,
+                                    professionSalaries = professionSalaries,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Hospital added successfully!", Toast.LENGTH_SHORT).show()
+                                        onSuccess()
+                                    },
+                                    onError = { error ->
+                                        errorMessage = error
+                                        isLoading = false
+                                    }
+                                )
+                            } else {
+                                // Update existing hospital
+                                viewModel.updateHospital(
+                                    hospitalId = hospital.id,
+                                    name = name,
+                                    state = state,
+                                    professions = professions,
+                                    salaryRange = salaryRange,
+                                    deadline = deadline,
+                                    created = created,
+                                    onlineApplication = onlineApplication,
+                                    applicationUrl = if (applicationUrl.isNotBlank()) applicationUrl else null,
+                                    physicalAddress = physicalAddress,
+                                    professionSalaries = professionSalaries,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Hospital updated successfully!", Toast.LENGTH_SHORT).show()
+                                        onSuccess()
+                                    },
+                                    onError = { error ->
+                                        errorMessage = error
+                                        isLoading = false
+                                    }
+                                )
                     }
-                },
-                modifier = Modifier.padding(top = 16.dp),
+                }, 
+                        modifier = Modifier.weight(1f),
                 enabled = !isLoading
             ) { 
-                Text(if (isLoading) "Saving..." else if (initialHospital == null) "Add Hospital" else "Update Hospital") 
+                if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                } else {
+                            Text(if (hospital == null) "Add Hospital" else "Update Hospital")
+                        }
+                    }
+                }
             }
         }
     }

@@ -2,12 +2,9 @@ package com.internlinkng.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.internlinkng.data.local.HospitalDao
-import com.internlinkng.data.local.toEntity
-import com.internlinkng.data.local.toModel
 import com.internlinkng.data.model.Hospital
-import com.internlinkng.data.model.UserSession
-import com.internlinkng.data.remote.ApiService
+import com.internlinkng.utils.NetworkUtils
+import com.internlinkng.utils.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +25,11 @@ import coil.ImageLoader
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.auth.ktx.auth
+import android.util.Log
 
 data class MainUiState(
     val isLoading: Boolean = false,
@@ -43,31 +45,62 @@ data class MainUiState(
     val selectedProfession: String = "",
     val selectedState: String = "",
     val selectedSalaryRange: String = "",
-    val profilePictureLoaded: Boolean = false
+    val profilePictureLoaded: Boolean = false,
+    val currentUser: com.google.firebase.auth.FirebaseUser? = null,
+    val userProfile: UserProfile? = null,
+    val adminEmail: String = "admin@internlinkng.com",
+    val adminPassword: String = "Admin123!"
 )
 
-class MainViewModel(
-    private val apiService: ApiService,
-    private val hospitalDao: HospitalDao
-) : ViewModel() {
+data class UserProfile(
+    val email: String,
+    val firstname: String,
+    val lastname: String,
+    val phoneNumber: String,
+    val stateOfResidence: String,
+    val profession: String,
+    val createdAt: com.google.firebase.Timestamp? = null
+)
 
-    // Expose apiService for navigation
-    val apiServiceInstance: ApiService get() = apiService
+class MainViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
+
     init {
         checkLoginStatus()
-        loadHospitalsFromLocal()
+        loadHospitalsFromFirebase()
+        // Test global connectivity
+        viewModelScope.launch {
+            val connectivityResults = NetworkUtils.testGlobalConnectivity()
+            val firebaseConnected = connectivityResults["firebase"] ?: false
+            val internetConnected = connectivityResults["internet"] ?: false
+            
+            if (!firebaseConnected) {
+                if (!internetConnected) {
+                    _uiState.value = _uiState.value.copy(
+                        error = "No internet connection. Please check your network settings."
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Firebase connection failed. Please try again later."
+                    )
+                }
+            }
+            
+            Log.d("MainViewModel", "Connectivity test - Firebase: $firebaseConnected, Internet: $internetConnected")
+        }
     }
 
     private fun checkLoginStatus() {
-        val isLoggedIn = UserSession.token != null
-        val isAdmin = UserSession.isAdmin
+        val currentUser = auth.currentUser
+        val isLoggedIn = currentUser != null
         _uiState.value = _uiState.value.copy(
             isLoggedIn = isLoggedIn,
-            isAdmin = isAdmin
+            currentUser = currentUser
         )
     }
 
@@ -75,28 +108,30 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                android.util.Log.d("MainViewModel", "Attempting login for email: $email")
-                val response = apiService.login(com.internlinkng.data.model.LoginRequest(email, password))
-                android.util.Log.d("MainViewModel", "Login successful, token received")
-                UserSession.token = response.token
-                UserSession.userId = response.userId
-                UserSession.isAdmin = response.isAdmin
-                android.util.Log.d("MainViewModel", "UserSession.isAdmin after login: ${UserSession.isAdmin}")
-                
-                // Load user profile to get profile picture
-                loadUserProfile()
-                
+                val result = NetworkUtils.login(email, password)
+                when (result) {
+                    is AuthResult.Success -> {
+                        val isAdmin = email == _uiState.value.adminEmail
                 _uiState.value = _uiState.value.copy(
                     isLoggedIn = true,
-                    isAdmin = response.isAdmin,
+                            currentUser = result.user,
+                            isAdmin = isAdmin,
                     isLoading = false
                 )
                 onSuccess()
+                    }
+                    is AuthResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                        onError(result.message)
+                    }
+                }
             } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Login failed", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Login failed: ${e.message ?: "Network error"}"
+                    error = e.message ?: "Login failed"
                 )
                 onError(e.message ?: "Login failed")
             }
@@ -107,45 +142,47 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                // Convert image to base64 if provided
-                val profilePictureBase64 = profilePictureUri?.let { uri ->
-                    withContext(Dispatchers.IO) {
-                        try {
-                            val context = apiServiceInstance.javaClass.classLoader?.loadClass("android.app.ActivityThread")?.getMethod("currentApplication")?.invoke(null) as? Context
-                            context?.let { ctx ->
-                                val inputStream = ctx.contentResolver.openInputStream(uri)
-                                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    val source = ImageDecoder.createSource(ctx.contentResolver, uri)
-                                    ImageDecoder.decodeBitmap(source)
-                                } else {
-                                    BitmapFactory.decodeStream(inputStream)
+                val result = NetworkUtils.signUp(email, password)
+                when (result) {
+                    is AuthResult.Success -> {
+                        // Create user profile in Firestore
+                        val userData = mapOf(
+                            "email" to email,
+                            "firstname" to firstname,
+                            "lastname" to lastname,
+                            "phoneNumber" to phoneNumber,
+                            "stateOfResidence" to stateOfResidence,
+                            "profession" to profession,
+                            "createdAt" to com.google.firebase.Timestamp.now()
+                        )
+                        
+                        result.user?.let { user ->
+                            firestore.collection("users")
+                                .document(user.uid)
+                                .set(userData)
+                                .addOnSuccessListener {
+                                    // Success
                                 }
-                                val outputStream = ByteArrayOutputStream()
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
-                                val byteArray = outputStream.toByteArray()
-                                Base64.encodeToString(byteArray, Base64.DEFAULT)
-                            } ?: ""
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainViewModel", "Error converting image to base64", e)
-                            ""
+                                .addOnFailureListener { e ->
+                                    // Handle error
+                                }
                         }
-                    }
-                }
-                
-                val response = apiService.signup(com.internlinkng.data.model.SignupRequest(email, password, firstname, lastname, phoneNumber, stateOfResidence, profession, profilePictureBase64))
-                UserSession.token = response.token
-                UserSession.userId = response.userId
-                UserSession.isAdmin = false
-                
-                // Store the profile picture in UserSession
-                UserSession.profilePicture = profilePictureBase64
                 
                 _uiState.value = _uiState.value.copy(
                     isLoggedIn = true,
-                    isAdmin = false,
+                            currentUser = result.user,
                     isLoading = false
                 )
                 onSuccess()
+                    }
+                    is AuthResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                        onError(result.message)
+                    }
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -157,35 +194,32 @@ class MainViewModel(
     }
 
     fun logout() {
-        UserSession.token = null
-        UserSession.userId = null
-        UserSession.isAdmin = false
+        viewModelScope.launch {
+            try {
+                NetworkUtils.logout()
         _uiState.value = _uiState.value.copy(
             isLoggedIn = false,
-            isAdmin = false
-        )
+                    currentUser = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Logout failed"
+                )
+            }
+        }
     }
 
     fun loadHospitals() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                android.util.Log.d("MainViewModel", "Attempting to load hospitals from API...")
-                val hospitals = apiService.getHospitals()
-                android.util.Log.d("MainViewModel", "Successfully loaded ${hospitals.size} hospitals from API")
-                
+                val hospitals = NetworkUtils.getHospitals()
                 _uiState.value = _uiState.value.copy(
                     hospitals = hospitals,
                     filteredHospitals = hospitals,
                     isLoading = false
                 )
-                // Save to local database
-                hospitals.forEach { hospital ->
-                    hospitalDao.insertOrUpdate(hospital.toEntity())
-                }
-                android.util.Log.d("MainViewModel", "Hospitals saved to local database")
             } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Failed to load hospitals from API", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Network error: ${e.message ?: "Failed to load hospitals"}"
@@ -194,17 +228,25 @@ class MainViewModel(
         }
     }
 
-    private fun loadHospitalsFromLocal() {
+    private fun loadHospitalsFromFirebase() {
         viewModelScope.launch {
             try {
-                val hospitalEntities = hospitalDao.getAllHospitals()
-                val hospitals = hospitalEntities.map { it.toModel() }
+                val hospitals = NetworkUtils.getHospitalsWithFallback()
+                Log.d("MainViewModel", "Loaded ${hospitals.size} hospitals from Firebase")
                 _uiState.value = _uiState.value.copy(
                     hospitals = hospitals,
                     filteredHospitals = hospitals
                 )
+                if (hospitals.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        error = "No hospitals available. Please check your internet connection or try again later."
+                    )
+                }
             } catch (e: Exception) {
-                // Handle local loading error
+                Log.e("MainViewModel", "Failed to load hospitals", e)
+                _uiState.value = _uiState.value.copy(
+                    error = "Unable to load hospitals. Please check your internet connection."
+                )
             }
         }
     }
@@ -234,9 +276,11 @@ class MainViewModel(
         _uiState.value = _uiState.value.copy(
             favouriteHospitalIds = if (current.contains(hospitalId)) current - hospitalId else current + hospitalId
         )
-        applyFilters() // update filtered list if needed
+        applyFilters()
     }
+    
     fun isFavourite(hospitalId: String): Boolean = _uiState.value.favouriteHospitalIds.contains(hospitalId)
+    
     fun toggleShowFavourites() {
         _uiState.value = _uiState.value.copy(showFavouritesOnly = !_uiState.value.showFavouritesOnly)
         applyFilters()
@@ -285,10 +329,16 @@ class MainViewModel(
     }
 
     fun markAsApplied(hospitalId: String) {
+        // TODO: Implement with Firebase
         viewModelScope.launch {
             try {
-                hospitalDao.markAsApplied(hospitalId, true)
-                loadAppliedHospitals()
+                // For now, just update the UI state
+                val currentApplied = _uiState.value.appliedHospitals.toMutableList()
+                val hospital = _uiState.value.hospitals.find { it.id == hospitalId }
+                if (hospital != null && !currentApplied.contains(hospital)) {
+                    currentApplied.add(hospital)
+                    _uiState.value = _uiState.value.copy(appliedHospitals = currentApplied)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to mark hospital as applied"
@@ -298,10 +348,12 @@ class MainViewModel(
     }
 
     fun unmarkAsApplied(hospitalId: String) {
+        // TODO: Implement with Firebase
         viewModelScope.launch {
             try {
-                hospitalDao.markAsApplied(hospitalId, false)
-                loadAppliedHospitals()
+                val currentApplied = _uiState.value.appliedHospitals.toMutableList()
+                currentApplied.removeAll { it.id == hospitalId }
+                _uiState.value = _uiState.value.copy(appliedHospitals = currentApplied)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to unmark hospital"
@@ -311,109 +363,90 @@ class MainViewModel(
     }
 
     fun loadAppliedHospitals() {
-        viewModelScope.launch {
-            try {
-                val appliedEntities = hospitalDao.getAppliedHospitals()
-                val appliedHospitals = appliedEntities.map { it.toModel() }
-                _uiState.value = _uiState.value.copy(appliedHospitals = appliedHospitals)
-            } catch (e: Exception) {
-                // Handle error
-            }
-        }
+        // TODO: Implement with Firebase
+        // For now, this is handled in markAsApplied/unmarkAsApplied
     }
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    fun submitApplication(
-        applicationRequest: com.internlinkng.data.model.ApplicationRequest,
-        onResult: (Boolean) -> Unit
-    ) {
-        viewModelScope.launch {
-            try {
-                apiService.submitApplication(applicationRequest)
-                onResult(true)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Failed to submit application"
-                )
-                onResult(false)
-            }
-        }
-    }
-
-    fun addHospital(
-        hospital: Hospital,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                apiService.addHospital(hospital)
-                loadHospitals()
-                _uiState.value = _uiState.value.copy(isLoading = false)
-                onSuccess()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                onError(e.message ?: "Failed to add hospital")
-            }
-        }
-    }
-
-    fun updateHospital(
-        hospital: Hospital,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                apiService.updateHospital(hospital.id, hospital)
-                loadHospitals()
-                _uiState.value = _uiState.value.copy(isLoading = false)
-                onSuccess()
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                onError(e.message ?: "Failed to update hospital")
-            }
-        }
-    }
-
-    fun refreshProfilePicture() {
-        viewModelScope.launch {
-            try {
-                android.util.Log.d("MainViewModel", "Refreshing profile picture...")
-                val profileData = apiService.getProfile()
-                val profilePicture = profileData["profilePicture"] as? String
-                UserSession.profilePicture = profilePicture
-                _uiState.value = _uiState.value.copy(profilePictureLoaded = true)
-                android.util.Log.d("MainViewModel", "Profile picture refreshed: ${UserSession.profilePicture != null}")
-            } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Failed to refresh profile picture", e)
-            }
-        }
-    }
-
     fun loadUserProfile() {
         viewModelScope.launch {
             try {
-                android.util.Log.d("MainViewModel", "Loading user profile...")
-                val profileData = apiService.getProfile()
-                android.util.Log.d("MainViewModel", "Profile data received: $profileData")
-                UserSession.firstname = profileData["firstname"] as? String
-                UserSession.lastname = profileData["lastname"] as? String
-                UserSession.phoneNumber = profileData["phoneNumber"] as? String
-                UserSession.stateOfResidence = profileData["stateOfResidence"] as? String
-                UserSession.profession = profileData["profession"] as? String
-                val profilePicture = profileData["profilePicture"] as? String
-                android.util.Log.d("MainViewModel", "Profile picture: ${if (profilePicture != null) "Found" else "null"}")
-                UserSession.profilePicture = profilePicture
-                android.util.Log.d("MainViewModel", "Profile picture stored in UserSession: ${UserSession.profilePicture != null}")
-                _uiState.value = _uiState.value.copy(profilePictureLoaded = true)
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    firestore.collection("users")
+                        .document(currentUser.uid)
+                        .get()
+                        .addOnSuccessListener { document ->
+                            if (document.exists()) {
+                                val userData = document.data
+                                userData?.let { data ->
+                                    val userProfile = UserProfile(
+                                        email = data["email"] as? String ?: "",
+                                        firstname = data["firstname"] as? String ?: "",
+                                        lastname = data["lastname"] as? String ?: "",
+                                        phoneNumber = data["phoneNumber"] as? String ?: "",
+                                        stateOfResidence = data["stateOfResidence"] as? String ?: "",
+                                        profession = data["profession"] as? String ?: "",
+                                        createdAt = data["createdAt"] as? com.google.firebase.Timestamp
+                                    )
+                _uiState.value = _uiState.value.copy(
+                                        userProfile = userProfile,
+                                        profilePictureLoaded = true
+                                    )
+                                }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            // Handle error
+                        }
+                }
             } catch (e: Exception) {
-                android.util.Log.e("MainViewModel", "Failed to load user profile", e)
+                // Handle error
+            }
+        }
+    }
+
+    fun updateUserProfile(
+        firstname: String,
+        lastname: String,
+        phoneNumber: String,
+        stateOfResidence: String,
+        profession: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    val userData = mapOf(
+                        "firstname" to firstname,
+                        "lastname" to lastname,
+                        "phoneNumber" to phoneNumber,
+                        "stateOfResidence" to stateOfResidence,
+                        "profession" to profession,
+                        "updatedAt" to com.google.firebase.Timestamp.now()
+                    )
+                    
+                    firestore.collection("users")
+                        .document(currentUser.uid)
+                        .update(userData)
+                        .addOnSuccessListener {
+                            // Reload user profile to update UI state
+                            loadUserProfile()
+                onSuccess()
+                        }
+                        .addOnFailureListener { e ->
+                            onError(e.message ?: "Failed to update profile")
+                        }
+                } else {
+                    onError("User not logged in")
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to update profile")
             }
         }
     }
@@ -426,10 +459,15 @@ class MainViewModel(
     }
 
     fun getAvailableStates(): List<String> {
-        return _uiState.value.hospitals
-            .map { it.state }
-            .distinct()
-            .sorted()
+        // Return all Nigerian states instead of just states from hospitals data
+        return listOf(
+            "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", 
+            "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", 
+            "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", 
+            "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", 
+            "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", 
+            "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT Abuja"
+        ).sorted()
     }
 
     fun getAvailableSalaryRanges(): List<String> {
@@ -439,89 +477,226 @@ class MainViewModel(
             .sorted()
     }
 
-    fun updateUserDetails(
-        firstname: String,
-        lastname: String,
-        phoneNumber: String,
-        stateOfResidence: String,
-        profession: String,
-        profilePictureUri: android.net.Uri? = null,
-        context: android.content.Context? = null,
+    // Admin Functions
+    fun addHospital(
+        name: String,
+        state: String,
+        professions: String,
+        salaryRange: String,
+        deadline: String,
+        created: String,
+        onlineApplication: Boolean,
+        applicationUrl: String?,
+        physicalAddress: String,
+        professionSalaries: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val token = UserSession.token ?: throw Exception("Not logged in")
-                val updateRequest = mutableMapOf<String, String?>(
-                    "firstname" to firstname,
-                    "lastname" to lastname,
-                    "phoneNumber" to phoneNumber,
-                    "stateOfResidence" to stateOfResidence,
-                    "profession" to profession
+                if (!_uiState.value.isAdmin) {
+                    onError("Admin access required")
+                    return@launch
+                }
+                
+                val hospitalData = mapOf(
+                    "name" to name,
+                    "state" to state,
+                    "professions" to professions,
+                    "salary_range" to salaryRange,
+                    "deadline" to deadline,
+                    "created" to created,
+                    "online_application" to onlineApplication,
+                    "application_url" to applicationUrl,
+                    "physical_address" to physicalAddress,
+                    "profession_salaries" to professionSalaries,
+                    "created_at" to com.google.firebase.Timestamp.now(),
+                    "updated_at" to com.google.firebase.Timestamp.now()
                 )
                 
-                // Handle profile picture
-                if (profilePictureUri != null) {
-                    // User selected a new image, convert it to Base64
-                    val base64Image = convertUriToBase64(profilePictureUri, context)
-                    updateRequest["profilePicture"] = base64Image
-                } else if (UserSession.profilePicture == null) {
-                    // User wants to remove profile picture (send empty string to backend)
-                    updateRequest["profilePicture"] = ""
-                }
-                // If UserSession.profilePicture is not null, keep existing picture
-                
-                val response = apiService.updateProfile("Bearer $token", updateRequest)
-                if (response.isSuccessful) {
-                    // Update local UserSession
-                    UserSession.firstname = firstname
-                    UserSession.lastname = lastname
-                    UserSession.phoneNumber = phoneNumber
-                    UserSession.stateOfResidence = stateOfResidence
-                    UserSession.profession = profession
-                    
-                    // Update profile picture in UserSession
-                    if (profilePictureUri != null) {
-                        val base64Image = convertUriToBase64(profilePictureUri, context)
-                        UserSession.profilePicture = base64Image
+                firestore.collection("hospitals")
+                    .add(hospitalData)
+                    .addOnSuccessListener { documentReference ->
+                        // Reload hospitals
+                        loadHospitalsFromFirebase()
+                        onSuccess()
                     }
-                    // UserSession.profilePicture is already updated by the UI, so no need to change it here
-                    
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = null
-                    )
-                    onSuccess()
-                } else {
-                    throw Exception(response.errorBody()?.string() ?: "Failed to update profile")
-                }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Failed to add hospital")
+                    }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message)
-                onError(e.message ?: "Failed to update user details")
+                onError(e.message ?: "Failed to add hospital")
             }
         }
     }
-
-    private suspend fun convertUriToBase64(uri: android.net.Uri, context: android.content.Context?): String {
-        return withContext(Dispatchers.IO) {
+    
+    fun updateHospital(
+        hospitalId: String,
+        name: String,
+        state: String,
+        professions: String,
+        salaryRange: String,
+        deadline: String,
+        created: String,
+        onlineApplication: Boolean,
+        applicationUrl: String?,
+        physicalAddress: String,
+        professionSalaries: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
             try {
-                val ctx = context ?: throw Exception("Context is required for image processing")
-                val inputStream = ctx.contentResolver.openInputStream(uri)
-                val bytes = inputStream?.readBytes() ?: throw Exception("Failed to read image")
-                inputStream?.close()
+                if (!_uiState.value.isAdmin) {
+                    onError("Admin access required")
+                    return@launch
+                }
                 
-                // Decode and re-encode to ensure consistent format
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                val outputStream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
-                val compressedBytes = outputStream.toByteArray()
-                outputStream.close()
+                val hospitalData = mapOf(
+                    "name" to name,
+                    "state" to state,
+                    "professions" to professions,
+                    "salary_range" to salaryRange,
+                    "deadline" to deadline,
+                    "created" to created,
+                    "online_application" to onlineApplication,
+                    "application_url" to applicationUrl,
+                    "physical_address" to physicalAddress,
+                    "profession_salaries" to professionSalaries,
+                    "updated_at" to com.google.firebase.Timestamp.now()
+                )
                 
-                Base64.encodeToString(compressedBytes, Base64.DEFAULT)
+                firestore.collection("hospitals")
+                    .document(hospitalId)
+                    .update(hospitalData)
+                    .addOnSuccessListener {
+                        Log.d("MainViewModel", "Hospital updated successfully, reloading hospitals...")
+                        // Reload hospitals
+                        loadHospitalsFromFirebase()
+                        onSuccess()
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("MainViewModel", "Failed to update hospital", e)
+                        onError(e.message ?: "Failed to update hospital")
+                    }
             } catch (e: Exception) {
-                throw Exception("Failed to process image: ${e.message}")
+                onError(e.message ?: "Failed to update hospital")
+            }
+        }
+    }
+    
+    fun deleteHospital(
+        hospitalId: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                if (!_uiState.value.isAdmin) {
+                    onError("Admin access required")
+                    return@launch
+                }
+                
+                firestore.collection("hospitals")
+                    .document(hospitalId)
+                    .delete()
+                    .addOnSuccessListener {
+                        // Reload hospitals
+                        loadHospitalsFromFirebase()
+                        onSuccess()
+                    }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Failed to delete hospital")
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to delete hospital")
+            }
+        }
+    }
+    
+    fun getAllUsers(
+        onSuccess: (List<UserProfile>) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                if (!_uiState.value.isAdmin) {
+                    onError("Admin access required")
+                    return@launch
+                }
+                
+                firestore.collection("users")
+                    .get()
+                    .addOnSuccessListener { documents ->
+                        val users = documents.mapNotNull { doc ->
+                            try {
+                                val data = doc.data
+                                UserProfile(
+                                    email = data["email"] as? String ?: "",
+                                    firstname = data["firstname"] as? String ?: "",
+                                    lastname = data["lastname"] as? String ?: "",
+                                    phoneNumber = data["phoneNumber"] as? String ?: "",
+                                    stateOfResidence = data["stateOfResidence"] as? String ?: "",
+                                    profession = data["profession"] as? String ?: "",
+                                    createdAt = data["createdAt"] as? com.google.firebase.Timestamp
+                                )
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        onSuccess(users)
+                    }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Failed to get users")
+                    }
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to get users")
+            }
+        }
+    }
+    
+    fun getHospitalById(
+        hospitalId: String,
+        onSuccess: (Hospital) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("hospitals")
+                    .document(hospitalId)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        if (document.exists()) {
+                            try {
+                                val data = document.data
+                                data?.let { hospitalData ->
+                                    val hospital = Hospital(
+                                        id = document.id,
+                                        name = hospitalData["name"] as? String ?: "",
+                                        state = hospitalData["state"] as? String ?: "",
+                                        professions = hospitalData["professions"] as? String ?: "",
+                                        salaryRange = hospitalData["salary_range"] as? String ?: "",
+                                        deadline = hospitalData["deadline"] as? String ?: "",
+                                        created = hospitalData["created"] as? String ?: "",
+                                        onlineApplication = hospitalData["online_application"] as? Boolean ?: false,
+                                        applicationUrl = hospitalData["application_url"] as? String,
+                                        physicalAddress = hospitalData["physical_address"] as? String ?: "",
+                                        professionSalaries = hospitalData["profession_salaries"] as? String ?: ""
+                                    )
+                                    onSuccess(hospital)
+                                }
+                            } catch (e: Exception) {
+                                onError("Failed to parse hospital data: ${e.message}")
+                            }
+                        } else {
+                            onError("Hospital not found")
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Failed to get hospital")
+                    }
+            } catch (e: Exception) {
+                onError(e.message ?: "Failed to get hospital")
             }
         }
     }

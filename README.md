@@ -11,11 +11,13 @@ A comprehensive Android application built with Kotlin and Jetpack Compose that h
 - **Digital Applications**: Submit applications online for supported hospitals
 - **Physical Application Support**: UI for courier arrangement (placeholder)
 - **Offline Support**: View cached hospital data without internet
+- **Share Details**: Share hospital information via WhatsApp, Email, etc.
 
 ### For Administrators
 - **Hospital Management**: Add, edit, and delete hospital listings
 - **Application Monitoring**: View submitted applications
 - **User Management**: Manage user accounts and permissions
+- **Admin Dashboard**: Platform statistics and management tools
 
 ## 🛠 Tech Stack
 
@@ -23,35 +25,38 @@ A comprehensive Android application built with Kotlin and Jetpack Compose that h
 - **Kotlin**: Primary programming language
 - **Jetpack Compose**: Modern declarative UI framework
 - **MVVM Architecture**: Clean separation of concerns
-- **Room Database**: Local data persistence
-- **Retrofit**: Network API communication
+- **Firebase**: Backend-as-a-Service
+- **Firebase Authentication**: User management
+- **Firestore**: NoSQL database
 - **Navigation Compose**: Screen navigation
 - **Material Design 3**: Modern UI components
 
-### Backend (Ktor)
-- **Kotlin**: Server-side language
-- **Ktor**: Lightweight web framework
-- **JWT Authentication**: Secure user sessions
-- **Exposed ORM**: Database operations
-- **CORS Support**: Cross-origin requests
-- **JSON Serialization**: Data exchange format
+### Backend (Firebase)
+- **Firebase Authentication**: Secure user sessions
+- **Firestore**: Real-time NoSQL database
+- **Firebase Storage**: File storage (future use)
+- **Firebase Analytics**: User behavior tracking
+- **Offline Persistence**: Automatic data caching
 
 ## 📱 Screens
 
-1. **Login/Signup Screen**: User authentication
+1. **Login/Signup Screen**: User authentication with Firebase
 2. **Home Screen**: Hospital listings with search and filters
 3. **Hospital Details Screen**: Detailed hospital information and application
 4. **Applied Hospitals Screen**: Track your applications
-5. **Settings Screen**: User preferences and logout
+5. **Settings Screen**: User preferences and profile management
 6. **Admin Screens**: Hospital management interface
+   - Admin Home Dashboard
+   - Add/Edit Hospital Form
+   - Hospital Management List
 
 ## 🏗 Architecture
 
 ### MVVM Pattern
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   UI Layer      │    │  ViewModel      │    │  Data Layer     │
-│   (Compose)     │◄──►│  (Business      │◄──►│  (Repository)   │
+│   UI Layer      │    │  ViewModel      │    │  Firebase       │
+│   (Compose)     │◄──►│  (Business      │◄──►│  (Backend)      │
 │                 │    │   Logic)        │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
@@ -59,9 +64,9 @@ A comprehensive Android application built with Kotlin and Jetpack Compose that h
 ### Data Flow
 1. **UI** observes ViewModel's StateFlow
 2. **ViewModel** processes user actions and updates state
-3. **Repository** manages data from multiple sources
-4. **Room** provides offline caching
-5. **Retrofit** handles API communication
+3. **Firebase** provides real-time data and authentication
+4. **Offline Persistence** ensures app works without internet
+5. **Firestore** handles data synchronization
 
 ## 🚀 Getting Started
 
@@ -70,24 +75,26 @@ A comprehensive Android application built with Kotlin and Jetpack Compose that h
 - Kotlin 1.8+
 - Android SDK 33+
 - Java 11+
+- Firebase project setup
 
-### Backend Setup
-1. Navigate to `internlinkng-backend/`
-2. Run the Ktor server:
-   ```bash
-   ./gradlew run
-   ```
-3. Server starts on `http://localhost:8080`
+### Firebase Setup
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Add your Android app to the project
+3. Download `google-services.json` and place it in `app/`
+4. Enable Authentication and Firestore in Firebase Console
+5. Set up Firestore security rules
 
 ### Android App Setup
 1. Open the project in Android Studio
-2. Update the backend URL in `MainActivity.kt` if needed
+2. Ensure `google-services.json` is in the `app/` directory
 3. Build and run the app
 
 ## 📊 Database Schema
 
-### Hospitals Table
-- `id`: Unique identifier
+### Firestore Collections
+
+#### Hospitals Collection
+- `id`: Document ID
 - `name`: Hospital name
 - `state`: Nigerian state
 - `professions`: Comma-separated list of medical professions
@@ -96,7 +103,17 @@ A comprehensive Android application built with Kotlin and Jetpack Compose that h
 - `onlineApplication`: Boolean flag for online applications
 - `applicationUrl`: URL for online applications
 - `physicalAddress`: Hospital address
-- `isApplied`: User's application status
+- `professionSalaries`: JSON string of profession-salary mappings
+- `created`: Creation date
+- `updated_at`: Last update timestamp
+
+#### Users Collection
+- `uid`: User ID from Firebase Auth
+- `email`: User's email address
+- `firstname`: User's first name
+- `lastname`: User's last name
+- `phone`: User's phone number
+- `created_at`: Account creation timestamp
 
 ## 🔐 Authentication
 
@@ -105,7 +122,7 @@ The app supports two user types:
 - **Administrators**: Can manage hospital listings
 
 ### Demo Credentials
-- **Admin**: `pascalezeke@gmail.com` / `Android_Studio1`
+- **Admin**: `admin@internlinkng.com` / `Admin123!`
 - **User**: Any email/password combination for signup
 
 ## 🌟 Key Features Implementation
@@ -114,9 +131,10 @@ The app supports two user types:
 - Real-time search across hospital names, states, and professions
 - Filter chips for profession, state, and salary range
 - Combined filtering with multiple criteria
+- All Nigerian states included in filter options
 
 ### Offline Support
-- Room database caches hospital data
+- Firebase offline persistence caches hospital data
 - App works without internet connection
 - Syncs data when connection is restored
 
@@ -126,32 +144,33 @@ The app supports two user types:
 - Submit digital applications
 - View applied hospitals list
 
+### Sharing Functionality
+- Share hospital details via Android share intent
+- Formatted text with emojis and structured information
+- Support for WhatsApp, Telegram, Email, SMS, etc.
+
 ### Modern UI/UX
 - Material Design 3 components
 - Dark/Light theme support
 - Responsive design
 - Smooth animations and transitions
+- Professional color scheme with medical theme
 
 ## 🔧 Configuration
 
-### Backend Configuration
-Update `internlinkng-backend/src/main/resources/application.conf`:
-```hocon
-ktor {
-  deployment {
-    port = 8080
-    port = ${?PORT}
-  }
-  application {
-    modules = [ com.internlinkng.backend.ApplicationKt.module ]
-  }
-}
-```
+### Firebase Configuration
+1. Add your `google-services.json` to the `app/` directory
+2. Configure Firestore security rules
+3. Set up Firebase Authentication providers
 
 ### Android Configuration
-Update `app/src/main/java/com/internlinkng/MainActivity.kt`:
+The app automatically configures Firebase on startup:
 ```kotlin
-.baseUrl("http://YOUR_BACKEND_IP:8080/")
+// Firebase is initialized in NetworkUtils.kt
+FirebaseFirestoreSettings.Builder()
+    .setPersistenceEnabled(true)
+    .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+    .build()
 ```
 
 ## 📈 Future Enhancements
@@ -163,6 +182,9 @@ Update `app/src/main/java/com/internlinkng/MainActivity.kt`:
 - [ ] Analytics dashboard for administrators
 - [ ] Multi-language support
 - [ ] Advanced search with geolocation
+- [ ] Profile picture upload to Firebase Storage
+- [ ] Application submission with Firebase
+- [ ] User management for admins
 
 ## 🤝 Contributing
 
@@ -179,7 +201,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 👥 Team
 
 - **Developer**: [Your Name]
-- **Backend**: Ktor + Kotlin
+- **Backend**: Firebase (Authentication, Firestore, Storage)
 - **Frontend**: Jetpack Compose + Kotlin
 
 ---

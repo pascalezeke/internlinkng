@@ -13,14 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.internlinkng.data.remote.ApiService
-import com.internlinkng.data.model.LoginRequest
-import com.internlinkng.data.model.SignupRequest
-import com.internlinkng.data.model.UserSession
-import kotlinx.coroutines.launch
-import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.filled.ArrowDropDown
+import com.internlinkng.utils.NetworkUtils
+import com.internlinkng.utils.AuthResult
 import com.internlinkng.viewmodel.MainViewModel
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,11 +32,12 @@ import android.net.Uri
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import com.internlinkng.R
+import kotlinx.coroutines.launch
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    apiService: ApiService,
     onLoginSuccess: () -> Unit,
     viewModel: MainViewModel
 ) {
@@ -76,6 +71,7 @@ fun LoginScreen(
     )
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    
     if (showUserInfoScreen) {
         UserInfoScreen(
             firstname = firstname,
@@ -95,12 +91,36 @@ fun LoginScreen(
                 errorMessage = null
                 coroutineScope.launch {
                     try {
-                        viewModel.signup(email, password, firstname, lastname, phoneNumber, stateOfResidence, profession, selectedImageUri, onSuccess = {
-                            Toast.makeText(context, "Signed up! isAdmin: false", Toast.LENGTH_LONG).show()
-                            onLoginSuccess()
-                        }, onError = {
-                            errorMessage = it
-                        })
+                        // Create user profile in Firestore
+                        val userData = mapOf(
+                            "email" to email,
+                            "firstname" to firstname,
+                            "lastname" to lastname,
+                            "phoneNumber" to phoneNumber,
+                            "stateOfResidence" to stateOfResidence,
+                            "profession" to profession,
+                            "createdAt" to com.google.firebase.Timestamp.now()
+                        )
+                        
+                        // Save user profile to Firestore
+                        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        if (user != null) {
+                            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                .collection("users")
+                                .document(user.uid)
+                                .set(userData)
+                                .addOnSuccessListener {
+                                    Toast.makeText(context, "Account created successfully!", Toast.LENGTH_LONG).show()
+                                    onLoginSuccess()
+                                }
+                                .addOnFailureListener { e ->
+                                    errorMessage = e.message ?: "Failed to create account"
+                                }
+                        } else {
+                            errorMessage = "Failed to create user profile"
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = e.message ?: "Failed to create account"
                     } finally {
                         isLoading = false
                     }
@@ -253,20 +273,36 @@ fun LoginScreen(
                                 coroutineScope.launch {
                                     try {
                                         if (isSignup) {
-                                            // After email/password, show user info screen
-                                            showUserInfoScreen = true
-                                            isLoading = false
-                                            return@launch
+                                            // Create account with Firebase
+                                            val result = NetworkUtils.signUp(email, password)
+                                            when (result) {
+                                                is AuthResult.Success -> {
+                                                    // After successful signup, show user info screen
+                                                    showUserInfoScreen = true
+                                                    isLoading = false
+                                                }
+                                                is AuthResult.Error -> {
+                                                    errorMessage = result.message
+                                                    isLoading = false
+                                                }
+                                            }
                                         } else {
-                                            val response = apiService.login(LoginRequest(email, password))
-                                            UserSession.token = response.token
-                                            UserSession.userId = response.userId
-                                            Toast.makeText(context, "Login success! isAdmin: ${response.isAdmin}", Toast.LENGTH_LONG).show()
-                                            onLoginSuccess()
+                                            // Login with Firebase
+                                            viewModel.login(
+                                                email = email,
+                                                password = password,
+                                                onSuccess = {
+                                                    Toast.makeText(context, "Login successful!", Toast.LENGTH_LONG).show()
+                                                    onLoginSuccess()
+                                                },
+                                                onError = { error ->
+                                                    errorMessage = error
+                                                    isLoading = false
+                                                }
+                                            )
                                         }
                                     } catch (e: Exception) {
                                         errorMessage = e.message ?: "An error occurred"
-                                    } finally {
                                         isLoading = false
                                     }
                                 }
@@ -283,7 +319,7 @@ fun LoginScreen(
                             )
                         } else {
                             Icon(
-                                if (isSignup) Icons.Default.Person else Icons.Default.Person,
+                                if (isSignup) Icons.Default.Person else Icons.Default.Login,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -313,7 +349,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-} 
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable

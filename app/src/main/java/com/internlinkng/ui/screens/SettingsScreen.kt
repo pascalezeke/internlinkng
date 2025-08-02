@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +46,15 @@ fun SettingsScreen(onLogout: () -> Unit = {}, onAdminLogin: () -> Unit = {}, vie
     var adminPassword by remember { mutableStateOf("") }
     var adminError by remember { mutableStateOf<String?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
+    
+    // Load user profile when screen is displayed
+    LaunchedEffect(Unit) {
+        viewModel?.loadUserProfile()
+    }
+    
+    val uiState by viewModel?.uiState?.collectAsState() ?: remember { mutableStateOf(null) }
+    val currentUser = uiState?.currentUser
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -96,11 +106,19 @@ fun SettingsScreen(onLogout: () -> Unit = {}, onAdminLogin: () -> Unit = {}, vie
                                 text = "User Account",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            Text(
-                                text = "Manage your account settings",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (currentUser != null) {
+                                Text(
+                                    text = currentUser.email ?: "User",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    text = "Manage your account settings",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                     
@@ -293,7 +311,19 @@ fun EditUserDialog(viewModel: MainViewModel?, onDismiss: () -> Unit) {
     val professions = viewModel.getAvailableProfessions()
     val states = viewModel.getAvailableStates()
     val context = androidx.compose.ui.platform.LocalContext.current
-    var localProfilePicture by remember { mutableStateOf(UserSession.profilePicture) }
+    var localProfilePicture by remember { mutableStateOf<String?>(null) }
+    
+    // Load user data from UI state
+    LaunchedEffect(uiState.userProfile) {
+        uiState.userProfile?.let { profile ->
+            firstname = profile.firstname
+            lastname = profile.lastname
+            phone = profile.phoneNumber
+            state = profile.stateOfResidence
+            profession = profile.profession
+        }
+    }
+    
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent(),
         onResult = { uri ->
@@ -324,13 +354,6 @@ fun EditUserDialog(viewModel: MainViewModel?, onDismiss: () -> Unit) {
             }
         }
     )
-    LaunchedEffect(UserSession.firstname, UserSession.lastname, UserSession.phoneNumber, UserSession.stateOfResidence, UserSession.profession) {
-        firstname = UserSession.firstname ?: ""
-        lastname = UserSession.lastname ?: ""
-        phone = UserSession.phoneNumber ?: ""
-        state = UserSession.stateOfResidence ?: ""
-        profession = UserSession.profession ?: ""
-    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Account Details") },
@@ -490,20 +513,20 @@ fun EditUserDialog(viewModel: MainViewModel?, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Button(onClick = {
-                UserSession.profilePicture = localProfilePicture // Update UserSession only on save
-                viewModel.updateUserDetails(
+                viewModel?.updateUserProfile(
                     firstname = firstname,
                     lastname = lastname,
                     phoneNumber = phone,
                     stateOfResidence = state,
                     profession = profession,
-                    profilePictureUri = selectedImageUri, // Pass the selected image URI
-                    context = context,
                     onSuccess = {
-                        viewModel.loadUserProfile()
+                        // Show success message
+                        Toast.makeText(context, "Profile updated successfully!", Toast.LENGTH_SHORT).show()
                         onDismiss()
                     },
-                    onError = { error -> errorMessage = error }
+                    onError = { error -> 
+                        errorMessage = error
+                    }
                 )
             }) {
                 Text("Save")

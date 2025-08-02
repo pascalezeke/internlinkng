@@ -78,8 +78,9 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    val firstname = UserSession.firstname ?: ""
-                    val lastname = UserSession.lastname ?: ""
+                    val userProfile = uiState.userProfile
+                    val firstname = userProfile?.firstname ?: ""
+                    val lastname = userProfile?.lastname ?: ""
                     Text(
                         text = if (firstname.isNotBlank() || lastname.isNotBlank()) "Hi, $firstname $lastname" else "Hi!",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
@@ -101,32 +102,14 @@ fun HomeScreen(
                 }
                 // Profile Picture Button (top right only)
                 IconButton(onClick = onSettingsClick) {
-                    if (UserSession.profilePicture != null && uiState.profilePictureLoaded) {
-                        val base64String = UserSession.profilePicture!!
-                        val imageBytes = Base64.decode(base64String, Base64.DEFAULT)
-                        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                        val imageBitmap = bitmap.asImageBitmap()
-                        Image(
-                            bitmap = imageBitmap,
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    shape = CircleShape
-                                ),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
+                    // For now, just show the default person icon
+                    // TODO: Implement profile picture from Firebase Storage
                         Icon(
                             Icons.Default.Person,
                             contentDescription = "Profile",
                             modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                    }
                 }
             }
         },
