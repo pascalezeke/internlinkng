@@ -330,9 +330,25 @@ fun HospitalDetailsScreen(
             title = { Text("Professions & Salaries") },
             text = {
                 Column {
-                    hospital.professionSalaries?.forEach { (profession, salary) ->
-                        Text("$profession: $salary")
-                    }
+                    hospital.professionSalaries?.let { salariesStr ->
+                        try {
+                            // Parse the JSON string to display salaries
+                            val pairs = salariesStr.trim('{', '}').split(",")
+                                .map { pair -> 
+                                    val keyValue = pair.split(":")
+                                    if (keyValue.size == 2) {
+                                        keyValue[0].trim('"') to keyValue[1].trim('"')
+                                    } else null
+                                }
+                                .filterNotNull()
+                            
+                            pairs.forEach { (profession, salary) ->
+                                Text("$profession: $salary")
+                            }
+                        } catch (e: Exception) {
+                            Text("Unable to parse salary information")
+                        }
+                    } ?: Text("No salary information available")
                 }
             },
             confirmButton = {
