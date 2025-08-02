@@ -196,7 +196,7 @@ fun AppliedHospitalCard(
             
             // Professions
             Text(
-                text = "Professions: ${hospital.professions.joinToString(", ")}",
+                text = "Professions: ${hospital.professions}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

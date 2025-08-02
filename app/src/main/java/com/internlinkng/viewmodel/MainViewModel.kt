@@ -251,7 +251,7 @@ class MainViewModel(
             filtered = filtered.filter { hospital ->
                 hospital.name.contains(currentState.searchQuery, ignoreCase = true) ||
                 hospital.state.contains(currentState.searchQuery, ignoreCase = true) ||
-                hospital.professions.any { it.contains(currentState.searchQuery, ignoreCase = true) }
+                hospital.professions.contains(currentState.searchQuery, ignoreCase = true)
             }
         }
 
@@ -420,7 +420,7 @@ class MainViewModel(
 
     fun getAvailableProfessions(): List<String> {
         return _uiState.value.hospitals
-            .flatMap { it.professions }
+            .flatMap { it.professions.split(",").map { profession -> profession.trim() } }
             .distinct()
             .sorted()
     }

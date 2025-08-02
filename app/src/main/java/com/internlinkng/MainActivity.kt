@@ -16,7 +16,6 @@ import com.internlinkng.data.remote.ApiService
 import com.internlinkng.data.remote.AuthInterceptor
 import com.internlinkng.ui.navigation.AppNavigation
 import com.internlinkng.ui.theme.InternsTheme
-import com.internlinkng.utils.NetworkUtils
 import com.internlinkng.viewmodel.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,30 +33,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Log network configuration
-        NetworkUtils.logNetworkInfo()
-        
-        // Test network connection
-        CoroutineScope(Dispatchers.IO).launch {
-            val isConnected = NetworkUtils.testConnection()
-            Log.d(TAG, "Backend connection test: ${if (isConnected) "SUCCESS" else "FAILED"}")
-            
-            // Test multiple endpoints for debugging
-            val endpointResults = NetworkUtils.testMultipleEndpoints()
-            Log.d(TAG, "Multiple endpoint test results: $endpointResults")
-            
-            // Try to find working endpoint
-            val workingEndpoint = NetworkUtils.findWorkingEndpoint()
-            if (workingEndpoint != null) {
-                Log.d(TAG, "Found working endpoint: $workingEndpoint")
-                // TODO: Update Retrofit base URL dynamically
-            }
-            
-            // Scan network for devices with backend
-            val devicesWithBackend = NetworkUtils.scanNetworkForPhone()
-            Log.d(TAG, "Devices with backend: $devicesWithBackend")
-        }
-
         // Initialize dependencies
         val database = Room.databaseBuilder(
             applicationContext,
@@ -69,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
         val hospitalDao = database.hospitalDao()
 
-        // Initialize Retrofit with AuthInterceptor
+        // Initialize Retrofit with AuthInterceptor (keeping for compatibility)
         val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor())
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -85,7 +60,7 @@ class MainActivity : ComponentActivity() {
 
         val apiService = retrofit.create(ApiService::class.java)
         
-        Log.d(TAG, "Retrofit configured with base URL: http://10.0.2.2:8080/")
+        Log.d(TAG, "App initialized with Supabase backend")
 
         setContent {
             InternsTheme {

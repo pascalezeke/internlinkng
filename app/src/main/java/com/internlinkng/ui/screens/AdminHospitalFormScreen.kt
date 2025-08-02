@@ -1,14 +1,16 @@
 package com.internlinkng.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.internlinkng.data.model.Hospital
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 
 @Composable
 fun AdminHospitalFormScreen(
@@ -21,8 +23,31 @@ fun AdminHospitalFormScreen(
     // Dynamic list of profession-salary pairs
     var professionSalaryList by remember {
         mutableStateOf(
-            initialHospital?.professionSalaries?.entries?.map { it.toPair() }?.toMutableList()
-            ?: mutableListOf(Pair("", ""))
+            if (initialHospital != null) {
+                val professions = initialHospital.professions.split(",").map { it.trim() }
+                val salaries = initialHospital.professionSalaries?.let { salariesStr ->
+                    try {
+                        // Simple parsing of profession salaries
+                        salariesStr.trim('{', '}').split(",")
+                            .map { pair -> 
+                                val keyValue = pair.split(":")
+                                if (keyValue.size == 2) {
+                                    keyValue[0].trim('"') to keyValue[1].trim('"')
+                                } else null
+                            }
+                            .filterNotNull()
+                            .toMap()
+                    } catch (e: Exception) {
+                        emptyMap()
+                    }
+                } ?: emptyMap()
+                
+                professions.mapIndexed { index, profession ->
+                    profession to (salaries[profession] ?: "")
+                }.toMutableList()
+            } else {
+                mutableListOf(Pair("", ""))
+            }
         )
     }
     var salaryRange by remember { mutableStateOf(initialHospital?.salaryRange ?: "") }
@@ -109,36 +134,37 @@ fun AdminHospitalFormScreen(
                     errorMessage = null
                     
                     try {
-                        val professionsList = professionSalaryList.map { it.first.trim() }
-                        val professionSalariesMap = professionSalaryList.associate { it.first.trim() to it.second.trim() }
+                        val professionsString = professionSalaryList.map { it.first.trim() }.joinToString(",")
+                        val professionSalariesString = professionSalaryList
+                            .filter { it.first.isNotBlank() && it.second.isNotBlank() }
+                            .joinToString(",") { "\"${it.first}\":\"${it.second}\"" }
+                            .let { if (it.isNotBlank()) "{$it}" else null }
+                        
                         onSubmit(
                             Hospital(
                                 id = initialHospital?.id ?: "", // Backend should generate ID for new
                                 name = name,
                                 state = state,
-                                professions = professionsList,
-                                salaryRange = salaryRange, // Use the field directly
+                                professions = professionsString,
+                                salaryRange = salaryRange,
                                 deadline = deadline,
                                 created = created,
                                 onlineApplication = onlineApplication,
                                 applicationUrl = applicationUrl.ifBlank { null },
-                                physicalAddress = physicalAddress.ifBlank { null },
-                                professionSalaries = professionSalariesMap
+                                physicalAddress = physicalAddress,
+                                professionSalaries = professionSalariesString
                             )
                         )
                     } catch (e: Exception) {
                         errorMessage = "Error: ${e.message}"
+                    } finally {
                         isLoading = false
                     }
-                }, 
+                },
                 modifier = Modifier.padding(top = 16.dp),
                 enabled = !isLoading
             ) { 
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                } else {
-                    Text("Submit") 
-                }
+                Text(if (isLoading) "Saving..." else if (initialHospital == null) "Add Hospital" else "Update Hospital") 
             }
         }
     }

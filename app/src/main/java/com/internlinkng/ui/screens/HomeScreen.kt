@@ -524,7 +524,7 @@ fun HospitalCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(vertical = 4.dp)
                 ) {
-                    items(hospital.professions) { profession ->
+                    items(hospital.professions.split(",").map { it.trim() }) { profession ->
                         Surface(
                             shape = MaterialTheme.shapes.medium,
                             color = Color(0xFFF2F2F2), // light gray background, tweak as needed

@@ -24,38 +24,34 @@ data class HospitalEntity(
 
 // Mapping function from Hospital model to HospitalEntity
 fun Hospital.toEntity(): HospitalEntity {
-    val gson = Gson()
     return HospitalEntity(
         id = id,
         name = name,
         state = state,
-        professions = professions.joinToString(","),
-        salaryRange = salaryRange,
-        deadline = deadline,
-        created = created, // Map created field
-        onlineApplication = onlineApplication,
-        applicationUrl = applicationUrl,
-        physicalAddress = physicalAddress ?: "",
-        professionSalaries = professionSalaries?.let { gson.toJson(it) }
-    )
-}
-
-// Mapping function from HospitalEntity to Hospital model
-fun HospitalEntity.toModel(): Hospital {
-    val gson = Gson()
-    return Hospital(
-        id = id,
-        name = name,
-        state = state,
-        professions = professions.split(",").map { it.trim() },
+        professions = professions, // Already a string in new model
         salaryRange = salaryRange,
         deadline = deadline,
         created = created, // Map created field
         onlineApplication = onlineApplication,
         applicationUrl = applicationUrl,
         physicalAddress = physicalAddress,
-        professionSalaries = professionSalaries?.let {
-            try { gson.fromJson(it, Map::class.java) as Map<String, String> } catch (e: Exception) { null }
-        }
+        professionSalaries = professionSalaries // Already a string in new model
+    )
+}
+
+// Mapping function from HospitalEntity to Hospital model
+fun HospitalEntity.toModel(): Hospital {
+    return Hospital(
+        id = id,
+        name = name,
+        state = state,
+        professions = professions, // Already a string
+        salaryRange = salaryRange,
+        deadline = deadline,
+        created = created, // Map created field
+        onlineApplication = onlineApplication,
+        applicationUrl = applicationUrl,
+        physicalAddress = physicalAddress,
+        professionSalaries = professionSalaries // Already a string
     )
 } 

@@ -30,10 +30,11 @@ fun HospitalDetailsScreen(
     var showCourierDialog by remember { mutableStateOf(false) }
     var showProfessionsDialog by remember { mutableStateOf(false) }
     var showSalaryDialog by remember { mutableStateOf(false) }
-    val professionsPreview = if (hospital.professions.size > 2) {
-        hospital.professions.take(2).joinToString(", ") + ",..."
+    val professionsList = hospital.professions.split(",").map { it.trim() }
+    val professionsPreview = if (professionsList.size > 2) {
+        professionsList.take(2).joinToString(", ") + ",..."
     } else {
-        hospital.professions.joinToString(", ")
+        professionsList.joinToString(", ")
     }
 
     Scaffold(
@@ -117,7 +118,7 @@ fun HospitalDetailsScreen(
                             value = professionsPreview,
                             modifier = Modifier.weight(1f)
                             .let { mod ->
-                                if (hospital.professions.size > 2) mod.clickable { showProfessionsDialog = true } else mod
+                                if (professionsList.size > 2) mod.clickable { showProfessionsDialog = true } else mod
                             }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -310,7 +311,7 @@ fun HospitalDetailsScreen(
             title = { Text("All Professions") },
             text = {
                 Column {
-                    hospital.professions.forEach {
+                    professionsList.forEach {
                         Text(it)
                     }
                 }
