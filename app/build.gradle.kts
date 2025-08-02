@@ -67,12 +67,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // Supabase dependencies
-    implementation("io.github.jan-tennert.supabase:supabase-kt:1.4.7")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:1.4.7")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:1.4.7")
-    implementation("io.github.jan-tennert.supabase:storage-kt:1.4.7")
-    implementation("io.github.jan-tennert.supabase:realtime-kt:1.4.7")
-    implementation("io.github.jan-tennert.supabase:functions-kt:1.4.7")
+    implementation("io.github.jan-tennert.supabase:supabase-kt:2.0.0")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:2.0.0")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:2.0.0")
+    implementation("io.github.jan-tennert.supabase:storage-kt:2.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
     
     testImplementation(libs.junit)
