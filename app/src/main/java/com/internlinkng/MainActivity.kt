@@ -15,7 +15,7 @@ import com.internlinkng.viewmodel.MainViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         setContent {
             InternsTheme {
                 Surface(

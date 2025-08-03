@@ -30,8 +30,6 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.rememberAsyncImagePainter
 import android.net.Uri
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
-import com.internlinkng.R
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
@@ -150,11 +148,12 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(vertical = 32.dp)
             ) {
-                // Custom Caduceus Icon
-                Image(
-                    painter = painterResource(id = R.drawable.ic_caduceus),
-                    contentDescription = "Caduceus Medical Symbol",
-                    modifier = Modifier.size(100.dp)
+                // Medical Icon
+                Icon(
+                    imageVector = Icons.Default.LocalHospital,
+                    contentDescription = "Medical Hospital Icon",
+                    modifier = Modifier.size(100.dp),
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(

@@ -160,8 +160,8 @@ fun AppNavigation(
             AdminHospitalFormScreen(
                 viewModel = viewModel,
                 hospital = null, // New hospital
-                onSuccess = {
-                    navController.popBackStack()
+                        onSuccess = {
+                            navController.popBackStack()
                 },
                 onCancel = {
                     navController.popBackStack()
@@ -188,7 +188,7 @@ fun AppNavigation(
                             isLoading = false
                         }
                     )
-                } else {
+            } else {
                     error = "Invalid hospital ID"
                     isLoading = false
                 }
@@ -230,7 +230,7 @@ fun AppNavigation(
                     }
                 }
                 hospital != null -> {
-                    AdminHospitalFormScreen(
+            AdminHospitalFormScreen(
                         viewModel = viewModel,
                         hospital = hospital,
                         onSuccess = {

@@ -204,7 +204,7 @@ class MainViewModel : ViewModel() {
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Logout failed"
-                )
+        )
             }
         }
     }
@@ -396,9 +396,9 @@ class MainViewModel : ViewModel() {
                                         userProfile = userProfile,
                                         profilePictureLoaded = true
                                     )
-                                }
-                            }
-                        }
+            }
+        }
+    }
                         .addOnFailureListener { e ->
                             // Handle error
                         }
@@ -441,7 +441,7 @@ class MainViewModel : ViewModel() {
                         }
                         .addOnFailureListener { e ->
                             onError(e.message ?: "Failed to update profile")
-                        }
+            }
                 } else {
                     onError("User not logged in")
                 }
@@ -613,7 +613,7 @@ class MainViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun getAllUsers(
         onSuccess: (List<UserProfile>) -> Unit,
         onError: (String) -> Unit
@@ -629,7 +629,7 @@ class MainViewModel : ViewModel() {
                     .get()
                     .addOnSuccessListener { documents ->
                         val users = documents.mapNotNull { doc ->
-                            try {
+            try {
                                 val data = doc.data
                                 UserProfile(
                                     email = data["email"] as? String ?: "",

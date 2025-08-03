@@ -109,13 +109,13 @@ object NetworkUtils {
         return withContext(Dispatchers.IO) {
             try {
                 auth.currentUser
-            } catch (e: Exception) {
+                } catch (e: Exception) {
                 Log.e(TAG, "Failed to get current user", e)
                 null
             }
-        }
-    }
-    
+                }
+            }
+            
     fun isLoggedIn(): Boolean {
         return try {
             auth.currentUser != null
@@ -137,7 +137,7 @@ object NetworkUtils {
             } catch (e: Exception) {
                 Log.e(TAG, "Firebase connection test: FAILED", e)
                 Log.e(TAG, "Error details: ${e.message}")
-                
+            
                 // Check if it's a regional/network issue
                 when {
                     e.message?.contains("network", ignoreCase = true) == true -> {
@@ -181,7 +181,7 @@ object NetworkUtils {
                 connection.requestMethod = "HEAD"
                 val responseCode = connection.responseCode
                 responseCode == 200
-            } catch (e: Exception) {
+                } catch (e: Exception) {
                 Log.e(TAG, "Internet connectivity test failed", e)
                 false
             }
